@@ -11,6 +11,28 @@ pwd  # Should be /workspaces/kamiyo-mcp
 # Install dependencies
 npm install
 
+# Install Solana CLI (for keypair generation)
+sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+
+# Generate test keypair for devnet
+solana-keygen new --outfile ~/.config/solana/agent-keypair.json --no-bip39-passphrase
+solana config set --url https://api.devnet.solana.com
+
+# Get keypair base58 for .env
+AGENT_PUBKEY=$(solana-keygen pubkey ~/.config/solana/agent-keypair.json)
+echo "Agent public key: $AGENT_PUBKEY"
+
+# Airdrop devnet SOL for testing
+solana airdrop 2 $AGENT_PUBKEY
+
+# Create .env file
+cat > .env << EOF
+SOLANA_RPC_URL=https://api.devnet.solana.com
+X402_PROGRAM_ID=E5EiaJhbg6Bav1v3P211LNv1tAqa4fHVeuGgRBHsEu6n
+AGENT_KEYPAIR_PATH=$HOME/.config/solana/agent-keypair.json
+EOF
+
 # Clone reference repo
 git clone https://github.com/kamiyo-ai/x402resolve /tmp/x402resolve
 ```
@@ -37,9 +59,25 @@ Create these files:
 
 #### `src/solana/client.ts`
 - Connection management
-- Keypair handling
+- Keypair loading from file or base58
 - Balance checking
 - Transaction confirmation
+
+**Keypair loading:**
+```typescript
+import { readFileSync } from 'fs';
+
+export function loadKeypair(pathOrBase58: string): Keypair {
+  if (pathOrBase58.includes('/')) {
+    // Load from file
+    const data = JSON.parse(readFileSync(pathOrBase58, 'utf-8'));
+    return Keypair.fromSecretKey(new Uint8Array(data));
+  } else {
+    // Load from base58 string
+    return Keypair.fromSecretKey(bs58.decode(pathOrBase58));
+  }
+}
+```
 
 #### `src/solana/pdas.ts`
 ```typescript
@@ -171,8 +209,10 @@ Create `.env.example`:
 ```bash
 SOLANA_RPC_URL=https://api.devnet.solana.com
 X402_PROGRAM_ID=E5EiaJhbg6Bav1v3P211LNv1tAqa4fHVeuGgRBHsEu6n
-AGENT_PRIVATE_KEY=<base58_keypair>
+AGENT_KEYPAIR_PATH=/path/to/keypair.json
 ```
+
+**Note:** Keypair is already generated during environment setup
 
 ## Validation Commands
 
