@@ -1,12 +1,19 @@
 import { PublicKey } from '@solana/web3.js';
 
-export class PDAUtil {
-  private programId: PublicKey;
+/**
+ * Utility class for deriving Program Derived Addresses (PDAs)
+ * for the x402Resolve escrow program
+ */
+export class PDADeriver {
+  constructor(private programId: PublicKey) {}
 
-  constructor(programId: PublicKey) {
-    this.programId = programId;
-  }
-
+  /**
+   * Derive escrow PDA from transaction ID
+   * Seeds: ['escrow', transaction_id]
+   *
+   * @param transactionId - Unique transaction identifier
+   * @returns [PDA PublicKey, bump seed]
+   */
   deriveEscrowPDA(transactionId: string): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
       [Buffer.from('escrow'), Buffer.from(transactionId)],
@@ -14,6 +21,13 @@ export class PDAUtil {
     );
   }
 
+  /**
+   * Derive reputation PDA for an entity (agent or API provider)
+   * Seeds: ['reputation', entity_pubkey]
+   *
+   * @param entity - Entity public key
+   * @returns [PDA PublicKey, bump seed]
+   */
   deriveReputationPDA(entity: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
       [Buffer.from('reputation'), entity.toBuffer()],
@@ -21,6 +35,13 @@ export class PDAUtil {
     );
   }
 
+  /**
+   * Derive rate limiter PDA for an entity
+   * Seeds: ['rate_limit', entity_pubkey]
+   *
+   * @param entity - Entity public key
+   * @returns [PDA PublicKey, bump seed]
+   */
   deriveRateLimiterPDA(entity: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
       [Buffer.from('rate_limit'), entity.toBuffer()],
