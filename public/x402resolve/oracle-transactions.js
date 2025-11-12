@@ -352,9 +352,16 @@ class OracleTransactionSystem {
     /**
      * Create and fund escrow
      */
-    async createEscrow(wallet, amount, transactionId, apiPublicKey) {
+    async createEscrow(wallet, amount, transactionId, apiPublicKey, useSplToken = false, tokenMintAddress = null) {
         try {
-            console.log('createEscrow called with:', { wallet: wallet.toString(), amount, transactionId, api: apiPublicKey.toString() });
+            console.log('createEscrow called with:', {
+                wallet: wallet.toString(),
+                amount,
+                transactionId,
+                api: apiPublicKey.toString(),
+                useSplToken,
+                tokenMint: tokenMintAddress
+            });
             const { pda: escrowPda } = this.deriveEscrowPDA(transactionId);
 
         // Check if escrow already exists
@@ -366,8 +373,39 @@ class OracleTransactionSystem {
 
         console.log('Creating new escrow:', { transactionId, amount, escrowPda: escrowPda.toString() });
 
-        const amountLamports = Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL);
+        // Calculate amount based on escrow type
+        const amountValue = useSplToken
+            ? Math.floor(amount) // For tokens, use raw amount (assumes integer or will be scaled by UI)
+            : Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL); // For SOL, convert to lamports
+
         const timeLock = 86400; // 24 hours
+
+        // Token Program constants
+        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+
+        // Derive token accounts if using SPL tokens
+        let tokenMint, escrowTokenAccount, agentTokenAccount;
+        if (useSplToken && tokenMintAddress) {
+            tokenMint = new solanaWeb3.PublicKey(tokenMintAddress);
+
+            // Derive Associated Token Accounts
+            escrowTokenAccount = solanaWeb3.PublicKey.findProgramAddressSync(
+                [escrowPda.toBytes(), TOKEN_PROGRAM_ID.toBytes(), tokenMint.toBytes()],
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            )[0];
+
+            agentTokenAccount = solanaWeb3.PublicKey.findProgramAddressSync(
+                [wallet.toBytes(), TOKEN_PROGRAM_ID.toBytes(), tokenMint.toBytes()],
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            )[0];
+
+            console.log('SPL Token accounts:', {
+                tokenMint: tokenMint.toString(),
+                escrowTokenAccount: escrowTokenAccount.toString(),
+                agentTokenAccount: agentTokenAccount.toString()
+            });
+        }
 
         // Build initialize_escrow instruction
         const discriminator = Buffer.from([243, 160, 77, 153, 11, 92, 48, 209]); // initialize_escrow discriminator from IDL
@@ -380,7 +418,7 @@ class OracleTransactionSystem {
         offset += 8;
 
         // amount (u64 LE)
-        dataLayout.writeBigUInt64LE(BigInt(amountLamports), offset);
+        dataLayout.writeBigUInt64LE(BigInt(amountValue), offset);
         offset += 8;
 
         // time_lock (i64 LE)
@@ -394,6 +432,10 @@ class OracleTransactionSystem {
         txIdBytes.copy(dataLayout, offset);
         offset += txIdBytes.length;
 
+        // use_spl_token (bool - 1 byte)
+        dataLayout.writeUInt8(useSplToken ? 1 : 0, offset);
+        offset += 1;
+
         const data = dataLayout.slice(0, offset);
 
         console.log('Initialize escrow instruction:', {
@@ -402,23 +444,35 @@ class OracleTransactionSystem {
             api: apiPublicKey.toString(),
             programId: this.programId.toString(),
             dataLength: data.length,
-            amount: amountLamports,
+            amount: amountValue,
             timeLock,
             transactionId,
+            useSplToken,
             dataHex: Array.from(data).map(b => b.toString(16).padStart(2, '0')).join('')
         });
 
-        console.log('=== CHECKPOINT 1: After logging instruction ===');
-        console.log('About to create TransactionInstruction...');
-        console.log('=== CHECKPOINT 2: Before creating instruction ===');
+        // Build instruction keys (base accounts + optional token accounts)
+        const keys = [
+            { pubkey: escrowPda, isSigner: false, isWritable: true },
+            { pubkey: wallet, isSigner: true, isWritable: true },
+            { pubkey: apiPublicKey, isSigner: false, isWritable: false },
+            { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+        ];
+
+        // Add optional token accounts
+        if (useSplToken && tokenMint && escrowTokenAccount && agentTokenAccount) {
+            keys.push(
+                { pubkey: tokenMint, isSigner: false, isWritable: false }, // token_mint
+                { pubkey: escrowTokenAccount, isSigner: false, isWritable: true }, // escrow_token_account
+                { pubkey: agentTokenAccount, isSigner: false, isWritable: true }, // agent_token_account
+                { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // token_program
+                { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false } // associated_token_program
+            );
+            console.log('Added SPL token accounts to instruction');
+        }
 
         const instruction = new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: escrowPda, isSigner: false, isWritable: true },
-                { pubkey: wallet, isSigner: true, isWritable: true },
-                { pubkey: apiPublicKey, isSigner: false, isWritable: false },
-                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
-            ],
+            keys,
             programId: this.programId,
             data
         });

@@ -14,7 +14,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-    <script src="/x402resolve/oracle-transactions.js?v=20251112_sequential_voting" defer></script>
+    <script src="/x402resolve/oracle-transactions.js?v=20251112_spl_token_support" defer></script>
     <style>
         /* ========================================
            CSS CUSTOM PROPERTIES (VARIABLES)
@@ -1343,10 +1343,36 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Transaction Value (SOL)</label>
+                    <label>Escrow Type</label>
+                    <div style="display: flex; gap: var(--spacing-lg); margin-bottom: var(--spacing-2xl);">
+                        <label style="display: flex; align-items: center; cursor: pointer; color: var(--color-text-secondary); margin-bottom: 0;">
+                            <input type="radio" name="escrowType" value="sol" id="escrowTypeSol" checked
+                                   onchange="toggleTokenMintField()"
+                                   style="width: auto; margin-right: var(--spacing-sm); cursor: pointer; accent-color: var(--color-magenta);">
+                            <span>Native SOL</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; color: var(--color-text-secondary); margin-bottom: 0;">
+                            <input type="radio" name="escrowType" value="spl" id="escrowTypeSpl"
+                                   onchange="toggleTokenMintField()"
+                                   style="width: auto; margin-right: var(--spacing-sm); cursor: pointer; accent-color: var(--color-magenta);">
+                            <span>SPL Token</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="tokenMintGroup" style="display: none;">
+                    <label>Token Mint Address</label>
+                    <input type="text" id="tokenMintAddress" placeholder="Enter SPL token mint address (e.g., EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v for USDC)">
+                    <p style="font-size: var(--font-size-sm); color: var(--color-text-quaternary); margin-top: var(--spacing-xs);">
+                        Common tokens: USDC (EPjFWdd5...), USDT, BONK, or any SPL token mint
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label id="valueLabel">Transaction Value (SOL)</label>
                     <input type="number" id="oracleValue" value="0.1" step="0.01" min="0.01" max="10">
-                    <p style="font-size: 0.85rem; color: #666; margin-top: 5px;">
-                        Transactions > 1 SOL require 3-oracle consensus
+                    <p style="font-size: var(--font-size-sm); color: var(--color-text-quaternary); margin-top: var(--spacing-xs);">
+                        All transactions use 5-oracle consensus for decentralization
                     </p>
                 </div>
 
@@ -1572,6 +1598,20 @@ pub mod x402_escrow {
         let currentChart = null;
         let consensusChart = null;
 
+        // Toggle token mint field visibility and update label
+        function toggleTokenMintField() {
+            const isSpl = document.getElementById('escrowTypeSpl').checked;
+            const tokenMintGroup = document.getElementById('tokenMintGroup');
+            const valueLabel = document.getElementById('valueLabel');
+
+            if (isSpl) {
+                tokenMintGroup.style.display = 'block';
+                valueLabel.textContent = 'Transaction Value (Token Amount)';
+            } else {
+                tokenMintGroup.style.display = 'none';
+                valueLabel.textContent = 'Transaction Value (SOL)';
+            }
+        }
 
         // Initialize
         function highlightSyntax() {
@@ -1815,7 +1855,23 @@ pub mod x402_escrow {
             const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
             const apiPublicKey = window.oracleSystem.oracles[0].publicKey; // Using first oracle as API for demo
 
+            // Read SPL token settings
+            const useSplToken = document.getElementById('escrowTypeSpl').checked;
+            const tokenMintAddress = useSplToken ? document.getElementById('tokenMintAddress').value.trim() : null;
+
+            // Validate token mint if SPL token selected
+            if (useSplToken && !tokenMintAddress) {
+                showStatus('Please enter a token mint address for SPL token escrow', 'error');
+                btn.disabled = false;
+                progressBar.style.display = 'none';
+                return;
+            }
+
             console.log('Creating escrow with transaction ID:', transactionId);
+            console.log('Escrow type:', useSplToken ? 'SPL Token' : 'Native SOL');
+            if (useSplToken) {
+                console.log('Token mint:', tokenMintAddress);
+            }
 
             try {
                 // Step 1: Ensure reputation accounts exist (batched)
@@ -1865,7 +1921,9 @@ pub mod x402_escrow {
                     walletPublicKey,
                     value,
                     transactionId,
-                    apiPublicKey
+                    apiPublicKey,
+                    useSplToken,
+                    tokenMintAddress
                 );
                 console.log('createEscrow returned:', escrowTx ? 'transaction' : 'null');
 
