@@ -1329,32 +1329,6 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Escrow Type</label>
-                    <div style="display: flex; gap: var(--spacing-lg); margin-bottom: var(--spacing-2xl);">
-                        <label style="display: flex; align-items: center; cursor: pointer; color: var(--color-text-secondary); margin-bottom: 0;">
-                            <input type="radio" name="escrowType" value="sol" id="escrowTypeSol" checked
-                                   onchange="toggleTokenMintField()"
-                                   style="width: auto; margin-right: var(--spacing-sm); cursor: pointer; accent-color: var(--color-magenta);">
-                            <span>Native SOL</span>
-                        </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; color: var(--color-text-secondary); margin-bottom: 0;">
-                            <input type="radio" name="escrowType" value="spl" id="escrowTypeSpl"
-                                   onchange="toggleTokenMintField()"
-                                   style="width: auto; margin-right: var(--spacing-sm); cursor: pointer; accent-color: var(--color-magenta);">
-                            <span>SPL Token</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group" id="tokenMintGroup" style="display: none;">
-                    <label>Token Mint Address</label>
-                    <input type="text" id="tokenMintAddress" placeholder="Enter SPL token mint address (e.g., EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v for USDC)">
-                    <p style="font-size: var(--font-size-sm); color: var(--color-text-quaternary); margin-top: var(--spacing-xs);">
-                        Common tokens: USDC (EPjFWdd5...), USDT, BONK, or any SPL token mint
-                    </p>
-                </div>
-
-                <div class="form-group">
                     <label id="valueLabel">Transaction Value (SOL)</label>
                     <input type="number" id="oracleValue" value="0.1" step="0.01" min="0.01" max="10">
                     <p style="font-size: var(--font-size-sm); color: var(--color-text-quaternary); margin-top: var(--spacing-xs);">
@@ -1401,6 +1375,22 @@
             </div>
 
             <div class="card">
+                <div class="card-bg p-20">
+                    <h3 class="text-primary mb-15 text-lg">Recent On-Chain Oracle Assessments</h3>
+                    <div id="recentAssessments" class="font-mono text-base text-tertiary">
+                        <div class="text-center p-20 text-quaternary">
+                            Loading recent Switchboard oracle transactions<span class="animated-dots"></span>
+                        </div>
+                    </div>
+                    <div class="text-center mt-15 pt-15 border-top">
+                        <a href="https://explorer.solana.com/address/4x8i1j1Xy9wTPCLELtXuBt6nMwCmfzF9BK47BG8MWWf7?cluster=devnet" target="_blank" class="text-base" style="text-decoration: none; color: #ff00ff;">
+                            View All Program Transactions →
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
                 <h2>Cost Comparison</h2>
                 <div class="grid-2-cols mt-30">
                     <div class="comparison-box-traditional">
@@ -1421,22 +1411,6 @@
                 <div class="text-center mt-20 pt-15 border-top">
                     <div class="text-lg text-secondary mb-5">84-94% cost reduction • 97-99% faster</div>
                     <div class="text-quaternary text-xs">Powered by Solana blockchain + decentralized oracles</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-bg p-20">
-                    <h3 class="text-primary mb-15 text-lg">Recent On-Chain Oracle Assessments</h3>
-                    <div id="recentAssessments" class="font-mono text-base text-tertiary">
-                        <div class="text-center p-20 text-quaternary">
-                            Loading recent Switchboard oracle transactions<span class="animated-dots"></span>
-                        </div>
-                    </div>
-                    <div class="text-center mt-15 pt-15 border-top">
-                        <a href="https://explorer.solana.com/address/4x8i1j1Xy9wTPCLELtXuBt6nMwCmfzF9BK47BG8MWWf7?cluster=devnet" target="_blank" class="text-base" style="text-decoration: none; color: #ff00ff;">
-                            View All Program Transactions →
-                        </a>
-                    </div>
                 </div>
             </div>
         </div>
