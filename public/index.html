@@ -1736,7 +1736,7 @@ pub mod x402_escrow {
         // Solana connection check
         async function checkSolanaConnection() {
             try {
-                const connection = new solanaWeb3.Connection('http://localhost:8899');
+                const connection = new solanaWeb3.Connection('https://api.devnet.solana.com');
                 const startTime = performance.now();
                 await connection.getSlot();
                 const endTime = performance.now();
@@ -1753,7 +1753,7 @@ pub mod x402_escrow {
 
         async function checkProgramStatus() {
             try {
-                const connection = new solanaWeb3.Connection('http://localhost:8899');
+                const connection = new solanaWeb3.Connection('https://api.devnet.solana.com');
                 const programId = new solanaWeb3.PublicKey('4x8i1j1Xy9wTPCLELtXuBt6nMwCmfzF9BK47BG8MWWf7');
                 const info = await connection.getAccountInfo(programId);
 
