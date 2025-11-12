@@ -625,6 +625,20 @@ class OracleTransactionSystem {
                     // Log full simulation details
                     if (simulation.value.logs) {
                         console.error('Program logs:', simulation.value.logs);
+
+                        // Check for insufficient funds error
+                        const insufficientFundsLog = simulation.value.logs.find(log =>
+                            log.includes('insufficient lamports')
+                        );
+                        if (insufficientFundsLog) {
+                            const match = insufficientFundsLog.match(/insufficient lamports (\d+), need (\d+)/);
+                            if (match) {
+                                const have = (parseInt(match[1]) / 1e9).toFixed(4);
+                                const need = (parseInt(match[2]) / 1e9).toFixed(4);
+                                throw new Error(`Insufficient funds: Wallet has ${have} SOL but needs ${need} SOL for this transaction. Please add more SOL to your wallet or reduce the transaction amount.`);
+                            }
+                            throw new Error('Insufficient funds: Your wallet does not have enough SOL for this transaction. Please add more SOL or reduce the amount.');
+                        }
                     }
 
                     // Try to decode Anchor error
