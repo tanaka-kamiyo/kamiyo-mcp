@@ -14,7 +14,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-    <script src="/x402resolve/oracle-transactions.js?v=20251112_v4_5oracles" defer></script>
+    <script src="/x402resolve/oracle-transactions.js?v=20251112_sequential_voting" defer></script>
     <style>
         /* ========================================
            CSS CUSTOM PROPERTIES (VARIABLES)
@@ -1880,13 +1880,45 @@ pub mod x402_escrow {
                     showStatus('Using existing escrow', 'success');
                 }
 
-                progressFill.style.width = '50%';
-                await sleep(2000);
+                progressFill.style.width = '20%';
+                await sleep(1000);
 
-                // Step 3: Generate Multi-Oracle Assessment
-                updateButtonText(btn, 'Step 3/3: Multi-Oracle Assessing Quality...');
-                progressFill.style.width = '65%';
+                // Step 3: Initialize Oracle Votes Storage
+                updateButtonText(btn, 'Step 3/11: Initializing Oracle Votes...');
+                const initVotesTx = await window.oracleSystem.initializeOracleVotesForSequential(walletPublicKey, transactionId);
+                const initVotesSig = await window.oracleSystem.sendAndConfirm(initVotesTx, walletPublicKey);
+                console.log('Oracle votes initialized:', initVotesSig);
+                showStatus(`Oracle votes storage created`, 'success');
+                progressFill.style.width = '30%';
+                await sleep(1000);
+
+                // Steps 4-8: Submit each oracle vote sequentially
+                // Generate assessment data for each oracle (same as before)
                 const assessment = await window.oracleSystem.generateMultiOracleAssessment(transactionId);
+
+                // Submit each oracle vote in separate transactions
+                for (let i = 0; i < 5; i++) {
+                    const stepNum = 4 + i;
+                    const oracleName = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'][i];
+                    updateButtonText(btn, `Step ${stepNum}/11: Oracle ${oracleName} Voting...`);
+
+                    const oracle = window.oracleSystem.oracles[i];
+                    const qualityScore = assessment.submissions[i].quality_score;
+
+                    const voteTx = await window.oracleSystem.submitOracleVoteSequential(
+                        walletPublicKey,
+                        transactionId,
+                        oracle,
+                        qualityScore
+                    );
+                    const voteSig = await window.oracleSystem.sendAndConfirm(voteTx, walletPublicKey);
+                    console.log(`Oracle ${i + 1} vote submitted:`, voteSig);
+                    showStatus(`Oracle ${oracleName} voted: ${qualityScore}/100`, 'success');
+
+                    const progress = 30 + ((i + 1) / 5) * 40; // Progress from 30% to 70%
+                    progressFill.style.width = `${progress}%`;
+                    await sleep(800);
+                }
 
                 // Use actual oracle scores from multi-oracle assessment
                 const oracles = assessment.submissions.map((sub, idx) => ({
@@ -1961,13 +1993,13 @@ pub mod x402_escrow {
                     }
                 });
 
-                progressFill.style.width = '80%';
-                await sleep(2000);
+                progressFill.style.width = '75%';
+                await sleep(1500);
 
-                // Step 4: Resolve Dispute with Multi-Oracle Consensus
-                updateButtonText(btn, 'Step 3/3: Resolving dispute with multi-oracle consensus...');
+                // Step 9: Resolve Dispute with Sequential Oracle Votes
+                updateButtonText(btn, 'Step 9/11: Finalizing Multi-Oracle Consensus...');
                 progressFill.style.width = '90%';
-                const resolveTx = await window.oracleSystem.resolveDisputeMultiOracle(transactionId, assessment);
+                const resolveTx = await window.oracleSystem.resolveDisputeSequential(walletPublicKey, transactionId);
                 const resolveSig = await window.oracleSystem.sendAndConfirm(resolveTx, walletPublicKey);
 
                 console.log('Dispute resolved:', resolveSig);

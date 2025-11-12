@@ -559,6 +559,249 @@ class OracleTransactionSystem {
     }
 
     /**
+     * Derive oracle votes PDA for sequential voting
+     */
+    deriveOracleVotesPDA(transactionId) {
+        const [pda, bump] = solanaWeb3.PublicKey.findProgramAddressSync(
+            [
+                Buffer.from('oracle_votes'),
+                Buffer.from(transactionId)
+            ],
+            this.programId
+        );
+        return { pda, bump };
+    }
+
+    /**
+     * Initialize oracle votes storage for sequential submission
+     * This creates a PDA to store individual oracle votes submitted over multiple transactions
+     */
+    async initializeOracleVotesForSequential(wallet, transactionId) {
+        const { pda: votesPda } = this.deriveOracleVotesPDA(transactionId);
+        const { pda: escrowPda } = this.deriveEscrowPDA(transactionId);
+
+        console.log('Initializing oracle votes storage:', {
+            transactionId,
+            votesPda: votesPda.toString(),
+            escrowPda: escrowPda.toString()
+        });
+
+        // Build initialize_oracle_votes instruction
+        const discriminator = Buffer.from([145, 20, 13, 176, 26, 115, 75, 15]);
+
+        // Encode transaction_id string
+        const txIdBytes = Buffer.from(transactionId, 'utf-8');
+        const dataLayout = Buffer.alloc(8 + 4 + txIdBytes.length);
+        let offset = 0;
+
+        // Discriminator
+        discriminator.copy(dataLayout, offset);
+        offset += 8;
+
+        // transaction_id (String - length prefix + bytes)
+        dataLayout.writeUInt32LE(txIdBytes.length, offset);
+        offset += 4;
+        txIdBytes.copy(dataLayout, offset);
+        offset += txIdBytes.length;
+
+        const data = dataLayout.slice(0, offset);
+
+        const instruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: votesPda, isSigner: false, isWritable: true },
+                { pubkey: escrowPda, isSigner: false, isWritable: false },
+                { pubkey: wallet, isSigner: true, isWritable: true },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+            ],
+            programId: this.programId,
+            data
+        });
+
+        return new solanaWeb3.Transaction().add(instruction);
+    }
+
+    /**
+     * Submit a single oracle vote for sequential multi-oracle consensus
+     * @param {PublicKey} wallet - Signer (any wallet can submit oracle votes)
+     * @param {string} transactionId - The escrow transaction ID
+     * @param {Object} oracle - Oracle object with publicKey and secretKey
+     * @param {number} qualityScore - Quality score 0-100
+     * @returns {Transaction} Transaction to submit one oracle vote
+     */
+    async submitOracleVoteSequential(wallet, transactionId, oracle, qualityScore) {
+        const { pda: votesPda } = this.deriveOracleVotesPDA(transactionId);
+        const { pda: registryPDA } = this.deriveOracleRegistryPDA();
+
+        console.log('Submitting oracle vote:', {
+            oracle: oracle.publicKey.toString(),
+            qualityScore,
+            transactionId
+        });
+
+        // Create signature: sign message = "transactionId:qualityScore"
+        const message = `${transactionId}:${qualityScore}`;
+        const messageBytes = new TextEncoder().encode(message);
+        const signatureBytes = nacl.sign.detached(messageBytes, oracle.secretKey);
+
+        // Build Ed25519 verification instruction
+        const ed25519Instruction = this.createEd25519InstructionForSingleVote(
+            oracle.publicKey,
+            signatureBytes,
+            messageBytes
+        );
+
+        // Build submit_oracle_vote instruction
+        const discriminator = Buffer.from([216, 118, 75, 24, 237, 248, 85, 209]);
+
+        const dataLayout = Buffer.alloc(8 + 32 + 1 + 64);
+        let offset = 0;
+
+        // Discriminator
+        discriminator.copy(dataLayout, offset);
+        offset += 8;
+
+        // oracle_pubkey (32 bytes)
+        const oracleBytes = oracle.publicKey.toBytes();
+        dataLayout.set(oracleBytes, offset);
+        offset += 32;
+
+        // quality_score (u8)
+        dataLayout.writeUInt8(qualityScore, offset);
+        offset += 1;
+
+        // signature ([u8; 64])
+        dataLayout.set(signatureBytes, offset);
+        offset += 64;
+
+        const data = dataLayout.slice(0, offset);
+
+        const submitInstruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: votesPda, isSigner: false, isWritable: true },
+                { pubkey: registryPDA, isSigner: false, isWritable: false },
+                { pubkey: solanaWeb3.SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
+                { pubkey: wallet, isSigner: true, isWritable: false },
+            ],
+            programId: this.programId,
+            data
+        });
+
+        // Ed25519 instruction must come first (index 0)
+        return new solanaWeb3.Transaction()
+            .add(ed25519Instruction)
+            .add(submitInstruction);
+    }
+
+    /**
+     * Create Ed25519 verification instruction for a single oracle vote
+     */
+    createEd25519InstructionForSingleVote(oraclePublicKey, signatureBytes, messageBytes) {
+        const publicKeyBytes = oraclePublicKey.toBytes();
+
+        // Ed25519 instruction data format
+        const headerSize = 16;
+        const sigOffset = headerSize;
+        const pubkeyOffset = sigOffset + 64;
+        const messageOffset = pubkeyOffset + 32;
+        const totalSize = messageOffset + messageBytes.length;
+
+        const dataLayout = new Uint8Array(totalSize);
+        let offset = 0;
+
+        // num_signatures (1 byte)
+        dataLayout[offset++] = 1;
+
+        // padding (1 byte)
+        dataLayout[offset++] = 0;
+
+        // signature_offset (u16 LE)
+        dataLayout[offset++] = sigOffset & 0xFF;
+        dataLayout[offset++] = (sigOffset >> 8) & 0xFF;
+
+        // signature_instruction_index (u16 LE) - 0xFFFF = current
+        dataLayout[offset++] = 0xFF;
+        dataLayout[offset++] = 0xFF;
+
+        // public_key_offset (u16 LE)
+        dataLayout[offset++] = pubkeyOffset & 0xFF;
+        dataLayout[offset++] = (pubkeyOffset >> 8) & 0xFF;
+
+        // public_key_instruction_index (u16 LE)
+        dataLayout[offset++] = 0xFF;
+        dataLayout[offset++] = 0xFF;
+
+        // message_data_offset (u16 LE)
+        dataLayout[offset++] = messageOffset & 0xFF;
+        dataLayout[offset++] = (messageOffset >> 8) & 0xFF;
+
+        // message_data_size (u16 LE)
+        dataLayout[offset++] = messageBytes.length & 0xFF;
+        dataLayout[offset++] = (messageBytes.length >> 8) & 0xFF;
+
+        // message_instruction_index (u16 LE)
+        dataLayout[offset++] = 0xFF;
+        dataLayout[offset++] = 0xFF;
+
+        // Copy data
+        dataLayout.set(signatureBytes, sigOffset);
+        dataLayout.set(publicKeyBytes, pubkeyOffset);
+        dataLayout.set(messageBytes, messageOffset);
+
+        return new solanaWeb3.TransactionInstruction({
+            keys: [],
+            programId: solanaWeb3.Ed25519Program.programId,
+            data: Buffer.from(dataLayout)
+        });
+    }
+
+    /**
+     * Resolve dispute with sequentially submitted oracle votes
+     * Reads votes from the OracleVotes PDA and finalizes the dispute resolution
+     */
+    async resolveDisputeSequential(wallet, transactionId) {
+        const { pda: escrowPda } = this.deriveEscrowPDA(transactionId);
+        const { pda: votesPda } = this.deriveOracleVotesPDA(transactionId);
+        const { pda: registryPDA } = this.deriveOracleRegistryPDA();
+
+        // Fetch escrow to get agent and API addresses
+        const escrowAccount = await this.connection.getAccountInfo(escrowPda);
+        if (!escrowAccount) {
+            throw new Error('Escrow account not found');
+        }
+
+        // Parse escrow data
+        const escrowData = escrowAccount.data;
+        const agentPubkey = new solanaWeb3.PublicKey(escrowData.slice(8, 40));
+        const apiPubkey = new solanaWeb3.PublicKey(escrowData.slice(40, 72));
+
+        const { pda: agentReputation } = this.deriveReputationPDA(agentPubkey);
+        const { pda: apiReputation } = this.deriveReputationPDA(apiPubkey);
+
+        console.log('Building resolve_dispute_sequential instruction');
+
+        // Build resolve_dispute_sequential instruction
+        const discriminator = Buffer.from([33, 217, 114, 7, 73, 83, 158, 181]);
+
+        const instruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: escrowPda, isSigner: false, isWritable: true },
+                { pubkey: votesPda, isSigner: false, isWritable: true },
+                { pubkey: registryPDA, isSigner: false, isWritable: false },
+                { pubkey: agentPubkey, isSigner: false, isWritable: true },
+                { pubkey: apiPubkey, isSigner: false, isWritable: true },
+                { pubkey: agentReputation, isSigner: false, isWritable: true },
+                { pubkey: apiReputation, isSigner: false, isWritable: true },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+                { pubkey: wallet, isSigner: true, isWritable: true }, // Payer to receive rent refund
+            ],
+            programId: this.programId,
+            data: discriminator
+        });
+
+        return new solanaWeb3.Transaction().add(instruction);
+    }
+
+    /**
      * Fetch recent program transactions from chain
      */
     async fetchRecentDisputes(limit = 10) {
