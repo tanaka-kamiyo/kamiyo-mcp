@@ -512,7 +512,8 @@ class OracleTransactionSystem {
         // Each submission: oracle (32 bytes) + quality_score (1 byte) + signature (64 bytes)
         for (const sub of assessment.submissions) {
             // Oracle pubkey (32 bytes)
-            sub.oracle.toBuffer().copy(submissionsData, offset);
+            const oracleBytes = sub.oracle.toBytes();
+            submissionsData.set(oracleBytes, offset);
             offset += 32;
 
             // Quality score (1 byte)
@@ -520,13 +521,14 @@ class OracleTransactionSystem {
             offset += 1;
 
             // Signature (64 bytes)
-            Buffer.from(sub.signature).copy(submissionsData, offset);
+            const sigBytes = new Uint8Array(sub.signature);
+            submissionsData.set(sigBytes, offset);
             offset += 64;
         }
 
         const resolveData = Buffer.alloc(discriminator.length + offset);
-        discriminator.copy(resolveData, 0);
-        submissionsData.copy(resolveData, discriminator.length, 0, offset);
+        resolveData.set(discriminator, 0);
+        resolveData.set(submissionsData.slice(0, offset), discriminator.length);
 
         console.log('Instruction data size:', resolveData.length, 'bytes');
 
