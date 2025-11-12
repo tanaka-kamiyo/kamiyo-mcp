@@ -432,9 +432,8 @@ class OracleTransactionSystem {
         txIdBytes.copy(dataLayout, offset);
         offset += txIdBytes.length;
 
-        // use_spl_token (bool - 1 byte)
-        dataLayout.writeUInt8(useSplToken ? 1 : 0, offset);
-        offset += 1;
+        // NOTE: use_spl_token parameter not in deployed program yet
+        // Will be added when program is redeployed with SPL token support
 
         const data = dataLayout.slice(0, offset);
 
@@ -451,7 +450,7 @@ class OracleTransactionSystem {
             dataHex: Array.from(data).map(b => b.toString(16).padStart(2, '0')).join('')
         });
 
-        // Build instruction keys (base accounts + optional token accounts)
+        // Build instruction keys (deployed program does not yet support SPL tokens)
         const keys = [
             { pubkey: escrowPda, isSigner: false, isWritable: true },
             { pubkey: wallet, isSigner: true, isWritable: true },
@@ -459,16 +458,9 @@ class OracleTransactionSystem {
             { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
         ];
 
-        // Add optional token accounts
-        if (useSplToken && tokenMint && escrowTokenAccount && agentTokenAccount) {
-            keys.push(
-                { pubkey: tokenMint, isSigner: false, isWritable: false }, // token_mint
-                { pubkey: escrowTokenAccount, isSigner: false, isWritable: true }, // escrow_token_account
-                { pubkey: agentTokenAccount, isSigner: false, isWritable: true }, // agent_token_account
-                { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // token_program
-                { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false } // associated_token_program
-            );
-            console.log('Added SPL token accounts to instruction');
+        // NOTE: SPL token accounts will be added when program is redeployed with SPL support
+        if (useSplToken) {
+            console.warn('SPL token escrow requested but deployed program does not support it yet. Creating SOL escrow instead.');
         }
 
         const instruction = new solanaWeb3.TransactionInstruction({
