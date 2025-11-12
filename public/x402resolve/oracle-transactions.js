@@ -64,25 +64,39 @@ class BufferPolyfill {
 
 const Buffer = BufferPolyfill;
 
-// Oracle keypair for signing (in production, this would be a secure backend service)
-// For demo purposes, we'll generate a deterministic keypair
-const ORACLE_SEED = new Uint8Array(32);
-for (let i = 0; i < 32; i++) {
-    ORACLE_SEED[i] = i + 100; // Deterministic seed for demo
+// Multi-Oracle Setup (5 oracles for consensus)
+// In production, these would be secure backend services
+const ORACLES = [];
+for (let i = 0; i < 5; i++) {
+    const seed = new Uint8Array(32);
+    for (let j = 0; j < 32; j++) {
+        seed[j] = (i * 50) + j + 100; // Deterministic seeds for demo
+    }
+    const keypair = nacl.sign.keyPair.fromSeed(seed);
+    const publicKey = new solanaWeb3.PublicKey(keypair.publicKey);
+    ORACLES.push({
+        name: `Oracle ${i + 1}`,
+        keypair: keypair,
+        publicKey: publicKey,
+        secretKey: keypair.secretKey
+    });
 }
 
 class OracleTransactionSystem {
     constructor() {
         this.connection = new solanaWeb3.Connection(DEVNET_RPC, 'confirmed');
         this.programId = new solanaWeb3.PublicKey(PROGRAM_ID);
-        this.oracleKeypair = null;
-        this.initOracle();
+        this.oracles = ORACLES;
+        this.initOracles();
     }
 
-    async initOracle() {
-        // Generate oracle keypair from seed (deterministic for demo)
-        this.oracleKeypair = solanaWeb3.Keypair.fromSeed(ORACLE_SEED);
-        console.log('Oracle Public Key:', this.oracleKeypair.publicKey.toString());
+    async initOracles() {
+        // Log all oracle public keys
+        console.log('=== Multi-Oracle System Initialized ===');
+        this.oracles.forEach((oracle, i) => {
+            console.log(`${oracle.name} Public Key:`, oracle.publicKey.toString());
+        });
+        console.log(`Total Oracles: ${this.oracles.length}`);
     }
 
     /**
@@ -110,135 +124,188 @@ class OracleTransactionSystem {
         return { pda, bump };
     }
 
+    deriveOracleRegistryPDA() {
+        const [pda, bump] = solanaWeb3.PublicKey.findProgramAddressSync(
+            [Buffer.from('oracle_registry')],
+            this.programId
+        );
+        return { pda, bump };
+    }
+
     /**
-     * Generate quality score and Ed25519 signature
+     * Generate multi-oracle quality assessment
      */
-    async generateQualityAssessment(transactionId) {
-        // Simulate quality analysis (in production, this would be AI-powered)
-        const baseScore = 65 + Math.floor(Math.random() * 15);
-        const qualityScore = Math.max(50, Math.min(85, baseScore));
+    async generateMultiOracleAssessment(transactionId) {
+        const submissions = [];
 
-        // Message format must match contract: "{transaction_id}:{quality_score}"
-        const message = `${transactionId}:${qualityScore}`;
-        const messageBytes = new TextEncoder().encode(message);
+        // Each oracle independently assesses quality
+        for (let i = 0; i < this.oracles.length; i++) {
+            const oracle = this.oracles[i];
 
-        // Sign with oracle keypair using Ed25519
-        const signature = nacl.sign.detached(messageBytes, this.oracleKeypair.secretKey);
+            // Each oracle generates its own quality score (with slight variation)
+            const baseScore = 70;
+            const variation = Math.floor(Math.random() * 10) - 5; // -5 to +5
+            const qualityScore = Math.max(0, Math.min(100, baseScore + variation));
 
-        // Calculate refund percentage based on quality score
-        let refundPercentage = 0;
-        if (qualityScore < 50) {
-            refundPercentage = 100;
-        } else if (qualityScore < 80) {
-            refundPercentage = Math.round((80 - qualityScore) / 80 * 100);
+            // Create message and sign it
+            const message = `${transactionId}:${qualityScore}`;
+            const messageBytes = new TextEncoder().encode(message);
+            const signature = nacl.sign.detached(messageBytes, oracle.secretKey);
+
+            submissions.push({
+                oracle: oracle.publicKey,
+                quality_score: qualityScore,
+                signature: Array.from(signature),
+                message: message
+            });
+
+            console.log(`${oracle.name} assessed quality: ${qualityScore}`);
         }
 
+        // Calculate consensus (median)
+        const scores = submissions.map(s => s.quality_score).sort((a, b) => a - b);
+        const consensusScore = scores[Math.floor(scores.length / 2)];
+
+        // Calculate refund percentage based on consensus
+        let refundPercentage = 0;
+        if (consensusScore < 50) {
+            refundPercentage = 100;
+        } else if (consensusScore < 65) {
+            refundPercentage = 75;
+        } else if (consensusScore < 80) {
+            refundPercentage = 35;
+        }
+
+        console.log(`Multi-Oracle Consensus: ${consensusScore} (Refund: ${refundPercentage}%)`);
+
         return {
-            qualityScore,
+            submissions,
+            consensusScore,
             refundPercentage,
-            signature: Array.from(signature),
-            message: message,
-            oraclePublicKey: this.oracleKeypair.publicKey
+            scores
         };
     }
 
     /**
-     * Create Ed25519 verify instruction
+     * Create Ed25519 verification instructions for multiple oracle submissions
      */
-    createEd25519Instruction(signature, publicKey, message) {
-        const signatureBytes = new Uint8Array(signature);
-        const publicKeyBytes = publicKey.toBytes();
-        const messageBytes = new TextEncoder().encode(message);
+    createEd25519Instructions(submissions) {
+        const instructions = [];
 
-        console.log('Ed25519 instruction data:', {
-            signatureLen: signatureBytes.length,
-            publicKeyLen: publicKeyBytes.length,
-            messageLen: messageBytes.length,
-            message: message
-        });
+        for (const submission of submissions) {
+            const signatureBytes = new Uint8Array(submission.signature);
+            const publicKeyBytes = submission.oracle.toBytes();
+            const messageBytes = new TextEncoder().encode(submission.message);
 
-        // Ed25519 instruction data format:
-        // Header (16 bytes) + Signature (64) + Public Key (32) + Message (variable)
-        const headerSize = 16;
-        const sigOffset = headerSize;
-        const pubkeyOffset = sigOffset + 64;
-        const messageOffset = pubkeyOffset + 32;
-        const totalSize = messageOffset + messageBytes.length;
+            // Ed25519 instruction data format
+            const headerSize = 16;
+            const sigOffset = headerSize;
+            const pubkeyOffset = sigOffset + 64;
+            const messageOffset = pubkeyOffset + 32;
+            const totalSize = messageOffset + messageBytes.length;
 
-        const dataLayout = new Uint8Array(totalSize);
+            const dataLayout = new Uint8Array(totalSize);
+            let offset = 0;
 
+            // num_signatures (1 byte)
+            dataLayout[offset++] = 1;
+
+            // padding (1 byte)
+            dataLayout[offset++] = 0;
+
+            // signature_offset (u16 LE)
+            dataLayout[offset++] = sigOffset & 0xFF;
+            dataLayout[offset++] = (sigOffset >> 8) & 0xFF;
+
+            // signature_instruction_index (u16 LE) - 0xFFFF = current
+            dataLayout[offset++] = 0xFF;
+            dataLayout[offset++] = 0xFF;
+
+            // public_key_offset (u16 LE)
+            dataLayout[offset++] = pubkeyOffset & 0xFF;
+            dataLayout[offset++] = (pubkeyOffset >> 8) & 0xFF;
+
+            // public_key_instruction_index (u16 LE)
+            dataLayout[offset++] = 0xFF;
+            dataLayout[offset++] = 0xFF;
+
+            // message_data_offset (u16 LE)
+            dataLayout[offset++] = messageOffset & 0xFF;
+            dataLayout[offset++] = (messageOffset >> 8) & 0xFF;
+
+            // message_data_size (u16 LE)
+            dataLayout[offset++] = messageBytes.length & 0xFF;
+            dataLayout[offset++] = (messageBytes.length >> 8) & 0xFF;
+
+            // message_instruction_index (u16 LE)
+            dataLayout[offset++] = 0xFF;
+            dataLayout[offset++] = 0xFF;
+
+            // Copy data
+            dataLayout.set(signatureBytes, sigOffset);
+            dataLayout.set(publicKeyBytes, pubkeyOffset);
+            dataLayout.set(messageBytes, messageOffset);
+
+            instructions.push(new solanaWeb3.TransactionInstruction({
+                keys: [],
+                programId: solanaWeb3.Ed25519Program.programId,
+                data: Buffer.from(dataLayout)
+            }));
+        }
+
+        console.log(`Created ${instructions.length} Ed25519 verification instructions`);
+        return instructions;
+    }
+
+    /**
+     * Initialize oracle registry (if needed)
+     */
+    async initializeOracleRegistry(wallet, minConsensus = 3, maxDeviation = 15) {
+        const { pda: registryPDA } = this.deriveOracleRegistryPDA();
+
+        // Check if registry already exists
+        try {
+            const accountInfo = await this.connection.getAccountInfo(registryPDA);
+            if (accountInfo) {
+                console.log('Oracle registry already exists');
+                return registryPDA;
+            }
+        } catch (e) {
+            // Registry doesn't exist, create it
+        }
+
+        console.log('Initializing oracle registry...');
+
+        // Build initialize_oracle_registry instruction
+        const discriminator = Buffer.from([190, 92, 228, 114, 56, 71, 101, 220]);
+
+        const dataLayout = Buffer.alloc(10);
         let offset = 0;
 
-        // num_signatures (1 byte)
-        dataLayout[offset] = 1;
+        discriminator.copy(dataLayout, offset);
+        offset += 8;
+
+        dataLayout.writeUInt8(minConsensus, offset);
         offset += 1;
 
-        // padding (1 byte)
-        dataLayout[offset] = 0;
+        dataLayout.writeUInt8(maxDeviation, offset);
         offset += 1;
 
-        // signature_offset (u16 LE)
-        dataLayout[offset] = sigOffset & 0xFF;
-        dataLayout[offset + 1] = (sigOffset >> 8) & 0xFF;
-        offset += 2;
+        const data = dataLayout.slice(0, offset);
 
-        // signature_instruction_index (u16 LE) - 0xFFFF means current instruction
-        dataLayout[offset] = 0xFF;
-        dataLayout[offset + 1] = 0xFF;
-        offset += 2;
-
-        // public_key_offset (u16 LE)
-        dataLayout[offset] = pubkeyOffset & 0xFF;
-        dataLayout[offset + 1] = (pubkeyOffset >> 8) & 0xFF;
-        offset += 2;
-
-        // public_key_instruction_index (u16 LE)
-        dataLayout[offset] = 0xFF;
-        dataLayout[offset + 1] = 0xFF;
-        offset += 2;
-
-        // message_data_offset (u16 LE)
-        dataLayout[offset] = messageOffset & 0xFF;
-        dataLayout[offset + 1] = (messageOffset >> 8) & 0xFF;
-        offset += 2;
-
-        // message_data_size (u16 LE)
-        dataLayout[offset] = messageBytes.length & 0xFF;
-        dataLayout[offset + 1] = (messageBytes.length >> 8) & 0xFF;
-        offset += 2;
-
-        // message_instruction_index (u16 LE)
-        dataLayout[offset] = 0xFF;
-        dataLayout[offset + 1] = 0xFF;
-        offset += 2;
-
-        // Verify offsets are correct
-        if (sigOffset + signatureBytes.length > totalSize) {
-            throw new Error(`Signature offset ${sigOffset} + length ${signatureBytes.length} exceeds total size ${totalSize}`);
-        }
-        if (pubkeyOffset + publicKeyBytes.length > totalSize) {
-            throw new Error(`Pubkey offset ${pubkeyOffset} + length ${publicKeyBytes.length} exceeds total size ${totalSize}`);
-        }
-        if (messageOffset + messageBytes.length > totalSize) {
-            throw new Error(`Message offset ${messageOffset} + length ${messageBytes.length} exceeds total size ${totalSize}`);
-        }
-
-        // Signature data (64 bytes)
-        dataLayout.set(signatureBytes, sigOffset);
-
-        // Public key data (32 bytes)
-        dataLayout.set(publicKeyBytes, pubkeyOffset);
-
-        // Message data
-        dataLayout.set(messageBytes, messageOffset);
-
-        console.log('Ed25519 instruction created successfully, total size:', totalSize);
-
-        return new solanaWeb3.TransactionInstruction({
-            keys: [],
-            programId: solanaWeb3.Ed25519Program.programId,
-            data: Buffer.from(dataLayout)
+        const instruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: registryPDA, isSigner: false, isWritable: true },
+                { pubkey: wallet, isSigner: true, isWritable: true },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+            ],
+            programId: this.programId,
+            data
         });
+
+        const transaction = new solanaWeb3.Transaction().add(instruction);
+
+        return { transaction, registryPDA };
     }
 
     /**
@@ -405,10 +472,11 @@ class OracleTransactionSystem {
     }
 
     /**
-     * Resolve dispute with oracle signature
+     * Resolve dispute with multi-oracle consensus
      */
-    async resolveDispute(transactionId, assessment) {
+    async resolveDisputeMultiOracle(transactionId, assessment) {
         const { pda: escrowPda } = this.deriveEscrowPDA(transactionId);
+        const { pda: registryPDA } = this.deriveOracleRegistryPDA();
 
         // Fetch escrow to get agent and API addresses
         const escrowAccount = await this.connection.getAccountInfo(escrowPda);
@@ -424,66 +492,70 @@ class OracleTransactionSystem {
         const { pda: agentReputation } = this.deriveReputationPDA(agentPubkey);
         const { pda: apiReputation } = this.deriveReputationPDA(apiPubkey);
 
-        // Create Ed25519 verification instruction
-        const ed25519Ix = this.createEd25519Instruction(
-            assessment.signature,
-            assessment.oraclePublicKey,
-            assessment.message
-        );
-
-        // Build resolve_dispute instruction
-        const discriminator = Buffer.from([231, 6, 202, 6, 96, 103, 12, 230]); // resolve_dispute discriminator from IDL
-
-        console.log('Building resolve_dispute instruction:', {
-            qualityScore: assessment.qualityScore,
+        console.log('Building resolve_dispute_multi_oracle instruction:', {
+            consensusScore: assessment.consensusScore,
             refundPercentage: assessment.refundPercentage,
-            signatureLength: assessment.signature.length,
-            signatureType: typeof assessment.signature,
-            oracleKey: assessment.oraclePublicKey.toString()
+            numOracles: assessment.submissions.length
         });
 
-        const dataLayout = Buffer.alloc(100);
+        // Build resolve_dispute_multi_oracle instruction data
+        const discriminator = Buffer.from([30, 194, 15, 52, 59, 167, 234, 143]);
+
+        // Encode submissions array
+        const submissionsData = Buffer.alloc(4 + (assessment.submissions.length * (32 + 1 + 64)));
         let offset = 0;
 
-        discriminator.copy(dataLayout, offset);
-        offset += 8;
+        // Vector length (u32 LE)
+        submissionsData.writeUInt32LE(assessment.submissions.length, offset);
+        offset += 4;
 
-        // quality_score (u8)
-        dataLayout.writeUInt8(assessment.qualityScore, offset);
-        offset += 1;
+        // Each submission: oracle (32 bytes) + quality_score (1 byte) + signature (64 bytes)
+        for (const sub of assessment.submissions) {
+            // Oracle pubkey (32 bytes)
+            sub.oracle.toBuffer().copy(submissionsData, offset);
+            offset += 32;
 
-        // refund_percentage (u8)
-        dataLayout.writeUInt8(assessment.refundPercentage, offset);
-        offset += 1;
+            // Quality score (1 byte)
+            submissionsData.writeUInt8(sub.quality_score, offset);
+            offset += 1;
 
-        // signature ([u8; 64])
-        const sigBytes = Buffer.from(assessment.signature);
-        if (sigBytes.length !== 64) {
-            throw new Error(`Signature must be 64 bytes, got ${sigBytes.length}`);
+            // Signature (64 bytes)
+            Buffer.from(sub.signature).copy(submissionsData, offset);
+            offset += 64;
         }
-        sigBytes.copy(dataLayout, offset);
-        offset += 64;
 
-        const data = dataLayout.slice(0, offset);
-        console.log('Instruction data size:', data.length, 'bytes');
+        const resolveData = Buffer.alloc(discriminator.length + offset);
+        discriminator.copy(resolveData, 0);
+        submissionsData.copy(resolveData, discriminator.length, 0, offset);
 
-        const resolveIx = new solanaWeb3.TransactionInstruction({
+        console.log('Instruction data size:', resolveData.length, 'bytes');
+
+        // Create Ed25519 verification instructions (one per oracle)
+        const ed25519Instructions = this.createEd25519Instructions(assessment.submissions);
+
+        // Build resolve transaction
+        const transaction = new solanaWeb3.Transaction();
+
+        // Add Ed25519 verifications first
+        ed25519Instructions.forEach(ix => transaction.add(ix));
+
+        // Add resolve instruction
+        transaction.add(new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: escrowPda, isSigner: false, isWritable: true },
+                { pubkey: registryPDA, isSigner: false, isWritable: false },
                 { pubkey: agentPubkey, isSigner: false, isWritable: true },
                 { pubkey: apiPubkey, isSigner: false, isWritable: true },
-                { pubkey: assessment.oraclePublicKey, isSigner: false, isWritable: false },
-                { pubkey: solanaWeb3.SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
                 { pubkey: agentReputation, isSigner: false, isWritable: true },
                 { pubkey: apiReputation, isSigner: false, isWritable: true },
+                { pubkey: solanaWeb3.SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
                 { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
             ],
             programId: this.programId,
-            data
-        });
+            data: resolveData
+        }));
 
-        // Ed25519 instruction MUST come first
-        return new solanaWeb3.Transaction().add(ed25519Ix).add(resolveIx);
+        return transaction;
     }
 
     /**

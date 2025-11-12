@@ -14,7 +14,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-    <script src="/x402resolve/oracle-transactions.js?v=20251111b" defer></script>
+    <script src="/x402resolve/oracle-transactions.js?v=20251112_multi_oracle" defer></script>
     <style>
         /* ========================================
            CSS CUSTOM PROPERTIES (VARIABLES)
@@ -1883,36 +1883,19 @@ pub mod x402_escrow {
                 progressFill.style.width = '50%';
                 await sleep(2000);
 
-                // Step 3: Generate Oracle Assessment
-                updateButtonText(btn, 'Step 3/3: Oracle Assessing Quality...');
+                // Step 3: Generate Multi-Oracle Assessment
+                updateButtonText(btn, 'Step 3/3: Multi-Oracle Assessing Quality...');
                 progressFill.style.width = '65%';
-                const assessment = await window.oracleSystem.generateQualityAssessment(transactionId);
+                const assessment = await window.oracleSystem.generateMultiOracleAssessment(transactionId);
 
-                // Simulate 3 oracle scores for display
-                const baseScore = assessment.qualityScore;
-                const oracles = [
-                    {
-                        id: 1,
-                        name: 'Oracle Alpha',
-                        score: Math.max(50, Math.min(85, baseScore + Math.floor(Math.random() * 6 - 3))),
-                        reputation: 850,
-                        stake: 12.5
-                    },
-                    {
-                        id: 2,
-                        name: 'Oracle Beta',
-                        score: assessment.qualityScore,
-                        reputation: 920,
-                        stake: 15.0
-                    },
-                    {
-                        id: 3,
-                        name: 'Oracle Gamma',
-                        score: Math.max(50, Math.min(85, baseScore + Math.floor(Math.random() * 6 - 3))),
-                        reputation: 780,
-                        stake: 11.0
-                    }
-                ];
+                // Use actual oracle scores from multi-oracle assessment
+                const oracles = assessment.submissions.map((sub, idx) => ({
+                    id: idx + 1,
+                    name: `Oracle ${['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'][idx]}`,
+                    score: sub.quality_score,
+                    reputation: 800 + Math.floor(Math.random() * 200),
+                    stake: 10 + Math.floor(Math.random() * 10)
+                }));
 
                 // Display oracle cards
                 const oracleCards = document.getElementById('oracleCards');
@@ -1929,9 +1912,9 @@ pub mod x402_escrow {
                     `;
                 });
 
-                // Calculate consensus stats
+                // Calculate consensus stats from multi-oracle assessment
                 const scores = oracles.map(o => o.score);
-                const median = scores.sort((a, b) => a - b)[1];
+                const median = assessment.consensusScore; // Use actual consensus from multi-oracle system
                 const mean = scores.reduce((a, b) => a + b) / scores.length;
                 const variance = scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / scores.length;
                 const stdDev = Math.sqrt(variance);
@@ -1981,10 +1964,10 @@ pub mod x402_escrow {
                 progressFill.style.width = '80%';
                 await sleep(2000);
 
-                // Step 4: Resolve Dispute with Oracle Signature
-                updateButtonText(btn, 'Step 3/3: Resolving dispute on-chain...');
+                // Step 4: Resolve Dispute with Multi-Oracle Consensus
+                updateButtonText(btn, 'Step 3/3: Resolving dispute with multi-oracle consensus...');
                 progressFill.style.width = '90%';
-                const resolveTx = await window.oracleSystem.resolveDispute(transactionId, assessment);
+                const resolveTx = await window.oracleSystem.resolveDisputeMultiOracle(transactionId, assessment);
                 const resolveSig = await window.oracleSystem.sendAndConfirm(resolveTx, walletPublicKey);
 
                 console.log('Dispute resolved:', resolveSig);
