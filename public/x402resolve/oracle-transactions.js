@@ -535,29 +535,27 @@ class OracleTransactionSystem {
         // Create Ed25519 verification instructions (one per oracle)
         const ed25519Instructions = this.createEd25519Instructions(assessment.submissions);
 
-        // Build resolve transaction
-        const transaction = new solanaWeb3.Transaction();
+        // Build all instructions
+        const instructions = [
+            ...ed25519Instructions,
+            new solanaWeb3.TransactionInstruction({
+                keys: [
+                    { pubkey: escrowPda, isSigner: false, isWritable: true },
+                    { pubkey: registryPDA, isSigner: false, isWritable: false },
+                    { pubkey: agentPubkey, isSigner: false, isWritable: true },
+                    { pubkey: apiPubkey, isSigner: false, isWritable: true },
+                    { pubkey: agentReputation, isSigner: false, isWritable: true },
+                    { pubkey: apiReputation, isSigner: false, isWritable: true },
+                    { pubkey: solanaWeb3.SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
+                    { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+                ],
+                programId: this.programId,
+                data: resolveData
+            })
+        ];
 
-        // Add Ed25519 verifications first
-        ed25519Instructions.forEach(ix => transaction.add(ix));
-
-        // Add resolve instruction
-        transaction.add(new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: escrowPda, isSigner: false, isWritable: true },
-                { pubkey: registryPDA, isSigner: false, isWritable: false },
-                { pubkey: agentPubkey, isSigner: false, isWritable: true },
-                { pubkey: apiPubkey, isSigner: false, isWritable: true },
-                { pubkey: agentReputation, isSigner: false, isWritable: true },
-                { pubkey: apiReputation, isSigner: false, isWritable: true },
-                { pubkey: solanaWeb3.SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
-                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
-            ],
-            programId: this.programId,
-            data: resolveData
-        }));
-
-        return transaction;
+        // Return instructions array for wallet to sign (v0 transaction will be built in sendAndConfirm)
+        return { instructions, isV0: true };
     }
 
     /**
@@ -615,8 +613,22 @@ class OracleTransactionSystem {
         try {
             // Get recent blockhash
             const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-            transaction.recentBlockhash = blockhash;
-            transaction.feePayer = wallet;
+
+            // Handle v0 transactions (for larger transaction sizes with 5 oracles)
+            if (transaction.isV0 && transaction.instructions) {
+                console.log('Building v0 transaction for multi-oracle consensus...');
+                const messageV0 = new solanaWeb3.TransactionMessage({
+                    payerKey: wallet,
+                    recentBlockhash: blockhash,
+                    instructions: transaction.instructions,
+                }).compileToV0Message();
+
+                transaction = new solanaWeb3.VersionedTransaction(messageV0);
+            } else {
+                // Legacy transaction
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = wallet;
+            }
 
             // Pre-flight simulation
             try {
