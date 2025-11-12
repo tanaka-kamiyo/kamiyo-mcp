@@ -432,8 +432,9 @@ class OracleTransactionSystem {
         txIdBytes.copy(dataLayout, offset);
         offset += txIdBytes.length;
 
-        // NOTE: use_spl_token parameter not in deployed program yet
-        // Will be added when program is redeployed with SPL token support
+        // use_spl_token (bool - 1 byte, always false for now)
+        dataLayout.writeUInt8(useSplToken ? 1 : 0, offset);
+        offset += 1;
 
         const data = dataLayout.slice(0, offset);
 
