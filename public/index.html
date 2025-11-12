@@ -1813,7 +1813,7 @@ pub mod x402_escrow {
 
             const value = parseFloat(document.getElementById('oracleValue').value);
             const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-            const apiPublicKey = window.oracleSystem.oracleKeypair.publicKey; // Using oracle as API for demo
+            const apiPublicKey = window.oracleSystem.oracles[0].publicKey; // Using first oracle as API for demo
 
             console.log('Creating escrow with transaction ID:', transactionId);
 
