@@ -1,29 +1,274 @@
 {
-  "version": "0.1.0",
-  "name": "x402_escrow",
+  "address": "4x8i1j1Xy9wTPCLELtXuBt6nMwCmfzF9BK47BG8MWWf7",
+  "metadata": {
+    "name": "x402_escrow",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "x402Resolve Escrow Program - Automated dispute resolution for agent payments"
+  },
+  "docs": [
+    "x402Resolve Escrow Program",
+    "",
+    "Holds payments in escrow with time-lock and dispute resolution.",
+    "Enables automated refunds based on verifier oracle signatures."
+  ],
   "instructions": [
     {
-      "name": "initializeEscrow",
+      "name": "add_oracle",
+      "docs": [
+        "Add an oracle to the registry"
+      ],
+      "discriminator": [
+        185,
+        165,
+        165,
+        167,
+        208,
+        207,
+        55,
+        35
+      ],
+      "accounts": [
+        {
+          "name": "oracle_registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "oracle_pubkey",
+          "type": "pubkey"
+        },
+        {
+          "name": "oracle_type",
+          "type": {
+            "defined": {
+              "name": "OracleType"
+            }
+          }
+        },
+        {
+          "name": "weight",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "check_rate_limit",
+      "docs": [
+        "Rate limit check - ensures entity hasn't exceeded limits"
+      ],
+      "discriminator": [
+        49,
+        221,
+        190,
+        242,
+        213,
+        153,
+        95,
+        62
+      ],
+      "accounts": [
+        {
+          "name": "rate_limiter",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  97,
+                  116,
+                  101,
+                  95,
+                  108,
+                  105,
+                  109,
+                  105,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "entity"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entity",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_reputation",
+      "docs": [
+        "Initialize or update entity reputation"
+      ],
+      "discriminator": [
+        236,
+        239,
+        233,
+        112,
+        220,
+        149,
+        26,
+        175
+      ],
+      "accounts": [
+        {
+          "name": "reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "entity"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entity"
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_escrow",
+      "docs": [
+        "Initialize a new escrow for agent-to-API payment",
+        "",
+        "# Arguments",
+        "* `amount` - Amount to escrow (lamports or token amount)",
+        "* `time_lock` - Duration before auto-release (seconds)",
+        "* `transaction_id` - Unique transaction identifier",
+        "* `use_spl_token` - Whether to use SPL token (true) or SOL (false)"
+      ],
+      "discriminator": [
+        243,
+        160,
+        77,
+        153,
+        11,
+        92,
+        48,
+        209
+      ],
       "accounts": [
         {
           "name": "escrow",
-          "isMut": true,
-          "isSigner": false
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "transaction_id"
+              }
+            ]
+          }
         },
         {
           "name": "agent",
-          "isMut": true,
-          "isSigner": true
+          "writable": true,
+          "signer": true
         },
         {
-          "name": "api",
-          "isMut": false,
-          "isSigner": false
+          "name": "api"
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_mint",
+          "optional": true
+        },
+        {
+          "name": "escrow_token_account",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "agent_token_account",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "token_program",
+          "optional": true,
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "optional": true,
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         }
       ],
       "args": [
@@ -32,668 +277,1352 @@
           "type": "u64"
         },
         {
-          "name": "timeLock",
+          "name": "time_lock",
           "type": "i64"
         },
         {
-          "name": "transactionId",
+          "name": "transaction_id",
+          "type": "string"
+        },
+        {
+          "name": "use_spl_token",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "initialize_oracle_registry",
+      "docs": [
+        "Initialize the oracle registry"
+      ],
+      "discriminator": [
+        190,
+        92,
+        228,
+        114,
+        56,
+        71,
+        101,
+        220
+      ],
+      "accounts": [
+        {
+          "name": "oracle_registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "min_consensus",
+          "type": "u8"
+        },
+        {
+          "name": "max_score_deviation",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "initialize_oracle_votes",
+      "docs": [
+        "Initialize oracle votes storage for sequential submission"
+      ],
+      "discriminator": [
+        145,
+        20,
+        13,
+        176,
+        26,
+        115,
+        75,
+        15
+      ],
+      "accounts": [
+        {
+          "name": "oracle_votes",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  118,
+                  111,
+                  116,
+                  101,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "transaction_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "transaction_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "transaction_id",
           "type": "string"
         }
       ]
     },
     {
-      "name": "releaseFunds",
+      "name": "mark_disputed",
+      "docs": [
+        "Mark escrow as disputed (agent initiates dispute)"
+      ],
+      "discriminator": [
+        136,
+        86,
+        152,
+        120,
+        3,
+        21,
+        223,
+        251
+      ],
       "accounts": [
         {
           "name": "escrow",
-          "isMut": true,
-          "isSigner": false
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.transaction_id",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
         },
         {
           "name": "agent",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "api",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "writable": true,
+          "signer": true
         }
       ],
       "args": []
     },
     {
-      "name": "resolveDispute",
+      "name": "release_funds",
+      "docs": [
+        "Release funds to API (happy path - no dispute)",
+        "",
+        "Can be called by:",
+        "- Agent (explicitly releasing)",
+        "- Anyone after time_lock expires (auto-release)"
+      ],
+      "discriminator": [
+        225,
+        88,
+        91,
+        108,
+        126,
+        52,
+        2,
+        26
+      ],
       "accounts": [
         {
           "name": "escrow",
-          "isMut": true,
-          "isSigner": false
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.transaction_id",
+                "account": "Escrow"
+              }
+            ]
+          }
         },
         {
           "name": "agent",
-          "isMut": true,
-          "isSigner": false
+          "writable": true,
+          "signer": true
         },
         {
           "name": "api",
-          "isMut": true,
-          "isSigner": false
+          "writable": true
         },
         {
-          "name": "verifier",
-          "isMut": false,
-          "isSigner": false
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "instructionsSysvar",
-          "isMut": false,
-          "isSigner": false
+          "name": "escrow_token_account",
+          "writable": true,
+          "optional": true
         },
         {
-          "name": "agentReputation",
-          "isMut": true,
-          "isSigner": false
+          "name": "api_token_account",
+          "writable": true,
+          "optional": true
         },
         {
-          "name": "apiReputation",
-          "isMut": true,
-          "isSigner": false
+          "name": "token_program",
+          "optional": true,
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "remove_oracle",
+      "docs": [
+        "Remove an oracle from the registry"
+      ],
+      "discriminator": [
+        60,
+        93,
+        51,
+        197,
+        182,
+        42,
+        170,
+        26
+      ],
+      "accounts": [
+        {
+          "name": "oracle_registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "admin",
+          "signer": true
         }
       ],
       "args": [
         {
-          "name": "qualityScore",
+          "name": "oracle_pubkey",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "resolve_dispute",
+      "docs": [
+        "Resolve dispute with verifier oracle signature",
+        "",
+        "x402 Verifier Oracle assesses quality and signs a refund percentage.",
+        "This instruction validates the signature and splits funds accordingly.",
+        "",
+        "# Arguments",
+        "* `quality_score` - Quality score from verifier (0-100)",
+        "* `refund_percentage` - Refund percentage (0-100)",
+        "* `signature` - Ed25519 signature from verifier oracle"
+      ],
+      "discriminator": [
+        231,
+        6,
+        202,
+        6,
+        96,
+        103,
+        12,
+        230
+      ],
+      "accounts": [
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.transaction_id",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "writable": true
+        },
+        {
+          "name": "api",
+          "writable": true
+        },
+        {
+          "name": "verifier"
+        },
+        {
+          "name": "instructions_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "agent_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "api_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "api"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "quality_score",
           "type": "u8"
         },
         {
-          "name": "refundPercentage",
+          "name": "refund_percentage",
           "type": "u8"
         },
         {
           "name": "signature",
           "type": {
-            "array": ["u8", 64]
+            "array": [
+              "u8",
+              64
+            ]
           }
         }
       ]
     },
     {
-      "name": "resolveDisputeSwitchboard",
+      "name": "resolve_dispute_multi_oracle",
+      "docs": [
+        "Resolve dispute with multi-oracle consensus"
+      ],
+      "discriminator": [
+        30,
+        194,
+        15,
+        52,
+        59,
+        167,
+        234,
+        143
+      ],
       "accounts": [
         {
           "name": "escrow",
-          "isMut": true,
-          "isSigner": false
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.transaction_id",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "agent",
-          "isMut": true,
-          "isSigner": false
+          "writable": true
         },
         {
           "name": "api",
-          "isMut": true,
-          "isSigner": false
+          "writable": true
         },
         {
-          "name": "switchboardFunction",
-          "isMut": false,
-          "isSigner": false
+          "name": "agent_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
         },
         {
-          "name": "agentReputation",
-          "isMut": true,
-          "isSigner": false
+          "name": "api_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "api"
+              }
+            ]
+          }
         },
         {
-          "name": "apiReputation",
-          "isMut": true,
-          "isSigner": false
+          "name": "instructions_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "escrow_token_account",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "agent_token_account",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "api_token_account",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "token_program",
+          "optional": true,
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
         {
-          "name": "qualityScore",
-          "type": "u8"
-        },
-        {
-          "name": "refundPercentage",
-          "type": "u8"
+          "name": "submissions",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "OracleSubmissionInput"
+              }
+            }
+          }
         }
       ]
     },
     {
-      "name": "markDisputed",
+      "name": "resolve_dispute_sequential",
+      "docs": [
+        "Resolve dispute with sequential oracle votes (reads from OracleVotes account)",
+        "This instruction consumes the votes submitted via submit_oracle_vote"
+      ],
+      "discriminator": [
+        33,
+        217,
+        114,
+        7,
+        73,
+        83,
+        158,
+        181
+      ],
       "accounts": [
         {
           "name": "escrow",
-          "isMut": true,
-          "isSigner": false
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.transaction_id",
+                "account": "Escrow"
+              }
+            ]
+          }
         },
         {
-          "name": "reputation",
-          "isMut": true,
-          "isSigner": false
+          "name": "oracle_votes",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  118,
+                  111,
+                  116,
+                  101,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_votes.transaction_id",
+                "account": "OracleVotes"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "agent",
-          "isMut": true,
-          "isSigner": true
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "initReputation",
-      "accounts": [
-        {
-          "name": "reputation",
-          "isMut": true,
-          "isSigner": false
+          "writable": true
         },
         {
-          "name": "entity",
-          "isMut": false,
-          "isSigner": false
+          "name": "api",
+          "writable": true
+        },
+        {
+          "name": "agent_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "api_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "api"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "escrow_token_account",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "agent_token_account",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "api_token_account",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "token_program",
+          "optional": true,
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
           "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "docs": [
+            "Payer to receive rent refund when closing oracle_votes account"
+          ],
+          "writable": true,
+          "signer": true
         }
       ],
       "args": []
     },
     {
-      "name": "updateReputation",
+      "name": "resolve_dispute_switchboard",
+      "docs": [
+        "Resolve dispute with Switchboard On-Demand oracle",
+        "",
+        "Uses Switchboard decentralized oracle network for trustless quality assessment.",
+        "The Switchboard Function calculates quality score off-chain and produces",
+        "a cryptographically verified attestation that's validated on-chain.",
+        "",
+        "# Arguments",
+        "* `quality_score` - Quality score from Switchboard Function (0-100)",
+        "* `refund_percentage` - Refund percentage from Switchboard (0-100)"
+      ],
+      "discriminator": [
+        129,
+        18,
+        15,
+        153,
+        147,
+        215,
+        194,
+        0
+      ],
       "accounts": [
         {
-          "name": "reputation",
-          "isMut": true,
-          "isSigner": false
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.transaction_id",
+                "account": "Escrow"
+              }
+            ]
+          }
         },
         {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": true
+          "name": "agent",
+          "writable": true
+        },
+        {
+          "name": "api",
+          "writable": true
+        },
+        {
+          "name": "switchboard_function",
+          "docs": [
+            "Switchboard Function pull feed containing quality score"
+          ]
+        },
+        {
+          "name": "agent_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "api_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "api"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
         {
-          "name": "qualityScore",
+          "name": "quality_score",
           "type": "u8"
         },
         {
-          "name": "refundPercentage",
+          "name": "refund_percentage",
           "type": "u8"
         }
       ]
     },
     {
-      "name": "checkRateLimit",
+      "name": "submit_oracle_vote",
+      "docs": [
+        "Submit a single oracle vote (for sequential submission)",
+        "This allows splitting multi-oracle consensus into multiple small transactions"
+      ],
+      "discriminator": [
+        216,
+        118,
+        75,
+        24,
+        237,
+        248,
+        85,
+        209
+      ],
       "accounts": [
         {
-          "name": "rateLimiter",
-          "isMut": true,
-          "isSigner": false
+          "name": "oracle_votes",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  118,
+                  111,
+                  116,
+                  101,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_votes.transaction_id",
+                "account": "OracleVotes"
+              }
+            ]
+          }
         },
         {
-          "name": "entity",
-          "isMut": false,
-          "isSigner": true
+          "name": "oracle_registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "instructions_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "signer",
+          "signer": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "oracle_pubkey",
+          "type": "pubkey"
+        },
+        {
+          "name": "quality_score",
+          "type": "u8"
+        },
+        {
+          "name": "signature",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_reputation",
+      "docs": [
+        "Update reputation after transaction completes",
+        "Only callable by the escrow program itself during resolve_dispute"
+      ],
+      "discriminator": [
+        194,
+        220,
+        43,
+        201,
+        54,
+        209,
+        49,
+        178
+      ],
+      "accounts": [
+        {
+          "name": "reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "reputation.entity",
+                "account": "EntityReputation"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Authority that can update reputation (restricted)"
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "quality_score",
+          "type": "u8"
+        },
+        {
+          "name": "refund_percentage",
+          "type": "u8"
+        }
+      ]
     }
   ],
   "accounts": [
     {
-      "name": "Escrow",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "agent",
-            "type": "publicKey"
-          },
-          {
-            "name": "api",
-            "type": "publicKey"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "status",
-            "type": {
-              "defined": "EscrowStatus"
-            }
-          },
-          {
-            "name": "createdAt",
-            "type": "i64"
-          },
-          {
-            "name": "expiresAt",
-            "type": "i64"
-          },
-          {
-            "name": "transactionId",
-            "type": "string"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "qualityScore",
-            "type": {
-              "option": "u8"
-            }
-          },
-          {
-            "name": "refundPercentage",
-            "type": {
-              "option": "u8"
-            }
-          }
-        ]
-      }
+      "name": "EntityReputation",
+      "discriminator": [
+        177,
+        250,
+        208,
+        215,
+        36,
+        125,
+        97,
+        9
+      ]
     },
     {
-      "name": "EntityReputation",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "entity",
-            "type": "publicKey"
-          },
-          {
-            "name": "entityType",
-            "type": {
-              "defined": "EntityType"
-            }
-          },
-          {
-            "name": "totalTransactions",
-            "type": "u64"
-          },
-          {
-            "name": "disputesFiled",
-            "type": "u64"
-          },
-          {
-            "name": "disputesWon",
-            "type": "u64"
-          },
-          {
-            "name": "disputesPartial",
-            "type": "u64"
-          },
-          {
-            "name": "disputesLost",
-            "type": "u64"
-          },
-          {
-            "name": "averageQualityReceived",
-            "type": "u8"
-          },
-          {
-            "name": "reputationScore",
-            "type": "u16"
-          },
-          {
-            "name": "createdAt",
-            "type": "i64"
-          },
-          {
-            "name": "lastUpdated",
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
+      "name": "Escrow",
+      "discriminator": [
+        31,
+        213,
+        123,
+        187,
+        186,
+        22,
+        218,
+        155
+      ]
+    },
+    {
+      "name": "OracleRegistry",
+      "discriminator": [
+        94,
+        153,
+        19,
+        250,
+        94,
+        0,
+        12,
+        172
+      ]
+    },
+    {
+      "name": "OracleVotes",
+      "discriminator": [
+        254,
+        42,
+        90,
+        92,
+        84,
+        94,
+        93,
+        87
+      ]
     },
     {
       "name": "RateLimiter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "entity",
-            "type": "publicKey"
-          },
-          {
-            "name": "verificationLevel",
-            "type": {
-              "defined": "VerificationLevel"
-            }
-          },
-          {
-            "name": "transactionsLastHour",
-            "type": "u16"
-          },
-          {
-            "name": "transactionsLastDay",
-            "type": "u16"
-          },
-          {
-            "name": "disputesLastDay",
-            "type": "u16"
-          },
-          {
-            "name": "lastHourCheck",
-            "type": "i64"
-          },
-          {
-            "name": "lastDayCheck",
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "WorkAgreement",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "escrow",
-            "type": "publicKey"
-          },
-          {
-            "name": "query",
-            "type": "string"
-          },
-          {
-            "name": "requiredFields",
-            "type": "u8"
-          },
-          {
-            "name": "minRecords",
-            "type": "u32"
-          },
-          {
-            "name": "maxAgeDays",
-            "type": "u32"
-          },
-          {
-            "name": "minQualityScore",
-            "type": "u8"
-          },
-          {
-            "name": "createdAt",
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "ProviderPenalties",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "provider",
-            "type": "publicKey"
-          },
-          {
-            "name": "strikeCount",
-            "type": "u8"
-          },
-          {
-            "name": "suspended",
-            "type": "bool"
-          },
-          {
-            "name": "suspensionEnd",
-            "type": {
-              "option": "i64"
-            }
-          },
-          {
-            "name": "totalRefundsIssued",
-            "type": "u64"
-          },
-          {
-            "name": "poorQualityCount",
-            "type": "u32"
-          },
-          {
-            "name": "createdAt",
-            "type": "i64"
-          },
-          {
-            "name": "lastUpdated",
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    }
-  ],
-  "types": [
-    {
-      "name": "EscrowStatus",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Active"
-          },
-          {
-            "name": "Released"
-          },
-          {
-            "name": "Disputed"
-          },
-          {
-            "name": "Resolved"
-          }
-        ]
-      }
-    },
-    {
-      "name": "EntityType",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Agent"
-          },
-          {
-            "name": "Provider"
-          }
-        ]
-      }
-    },
-    {
-      "name": "VerificationLevel",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Basic"
-          },
-          {
-            "name": "Staked"
-          },
-          {
-            "name": "Social"
-          },
-          {
-            "name": "KYC"
-          }
-        ]
-      }
+      "discriminator": [
+        223,
+        136,
+        175,
+        223,
+        208,
+        34,
+        214,
+        238
+      ]
     }
   ],
   "events": [
     {
-      "name": "EscrowInitialized",
-      "fields": [
-        {
-          "name": "escrow",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "agent",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "api",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "amount",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "expiresAt",
-          "type": "i64",
-          "index": false
-        },
-        {
-          "name": "transactionId",
-          "type": "string",
-          "index": false
-        }
-      ]
-    },
-    {
       "name": "DisputeMarked",
-      "fields": [
-        {
-          "name": "escrow",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "agent",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "transactionId",
-          "type": "string",
-          "index": false
-        },
-        {
-          "name": "timestamp",
-          "type": "i64",
-          "index": false
-        }
+      "discriminator": [
+        71,
+        235,
+        136,
+        63,
+        73,
+        224,
+        8,
+        216
       ]
     },
     {
       "name": "DisputeResolved",
-      "fields": [
-        {
-          "name": "escrow",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "transactionId",
-          "type": "string",
-          "index": false
-        },
-        {
-          "name": "qualityScore",
-          "type": "u8",
-          "index": false
-        },
-        {
-          "name": "refundPercentage",
-          "type": "u8",
-          "index": false
-        },
-        {
-          "name": "refundAmount",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "paymentAmount",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "verifier",
-          "type": "publicKey",
-          "index": false
-        }
+      "discriminator": [
+        121,
+        64,
+        249,
+        153,
+        139,
+        128,
+        236,
+        187
+      ]
+    },
+    {
+      "name": "EscrowInitialized",
+      "discriminator": [
+        222,
+        186,
+        157,
+        47,
+        145,
+        142,
+        176,
+        248
       ]
     },
     {
       "name": "FundsReleased",
-      "fields": [
-        {
-          "name": "escrow",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "transactionId",
-          "type": "string",
-          "index": false
-        },
-        {
-          "name": "amount",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "api",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "timestamp",
-          "type": "i64",
-          "index": false
-        }
+      "discriminator": [
+        178,
+        119,
+        252,
+        230,
+        131,
+        104,
+        210,
+        210
+      ]
+    },
+    {
+      "name": "MultiOracleDisputeResolved",
+      "discriminator": [
+        146,
+        174,
+        125,
+        248,
+        228,
+        89,
+        26,
+        191
+      ]
+    },
+    {
+      "name": "OracleAdded",
+      "discriminator": [
+        48,
+        0,
+        207,
+        33,
+        20,
+        56,
+        215,
+        219
+      ]
+    },
+    {
+      "name": "OracleRegistryInitialized",
+      "discriminator": [
+        88,
+        111,
+        7,
+        92,
+        74,
+        14,
+        114,
+        205
+      ]
+    },
+    {
+      "name": "OracleRemoved",
+      "discriminator": [
+        62,
+        112,
+        125,
+        81,
+        128,
+        93,
+        194,
+        96
       ]
     }
   ],
@@ -797,12 +1726,777 @@
       "code": 6019,
       "name": "QualityScoreMismatch",
       "msg": "Quality score mismatch between Switchboard and submitted value"
+    },
+    {
+      "code": 6020,
+      "name": "InsufficientOracleConsensus",
+      "msg": "Insufficient oracle consensus - need at least min_consensus oracles"
+    },
+    {
+      "code": 6021,
+      "name": "UnregisteredOracle",
+      "msg": "Oracle not registered in registry"
+    },
+    {
+      "code": 6022,
+      "name": "NoConsensusReached",
+      "msg": "Oracle scores too divergent - no consensus reached"
+    },
+    {
+      "code": 6023,
+      "name": "DuplicateOracleSubmission",
+      "msg": "Oracle already submitted for this dispute"
+    },
+    {
+      "code": 6024,
+      "name": "MaxOraclesReached",
+      "msg": "Maximum oracles reached in registry"
+    },
+    {
+      "code": 6025,
+      "name": "OracleNotFound",
+      "msg": "Oracle not found in registry"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidOracleWeight",
+      "msg": "Invalid oracle weight - must be > 0"
+    },
+    {
+      "code": 6027,
+      "name": "MissingTokenMint",
+      "msg": "Token mint account is required for SPL token escrows"
+    },
+    {
+      "code": 6028,
+      "name": "MissingTokenAccount",
+      "msg": "Token account is required for SPL token escrows"
+    },
+    {
+      "code": 6029,
+      "name": "MissingTokenProgram",
+      "msg": "Token program is required for SPL token escrows"
+    },
+    {
+      "code": 6030,
+      "name": "TokenDecimalsMismatch",
+      "msg": "Token decimals mismatch"
+    },
+    {
+      "code": 6031,
+      "name": "InvalidTokenAccountOwner",
+      "msg": "Invalid token account owner"
+    },
+    {
+      "code": 6032,
+      "name": "TokenMintMismatch",
+      "msg": "Token mint mismatch between accounts"
+    },
+    {
+      "code": 6033,
+      "name": "UnsupportedOracleType",
+      "msg": "Oracle type not supported in multi-oracle consensus (currently only Ed25519)"
     }
   ],
-  "address": "E5EiaJhbg6Bav1v3P211LNv1tAqa4fHVeuGgRBHsEu6n",
-  "metadata": {
-    "name": "x402_escrow",
-    "version": "0.1.0",
-    "spec": "0.1.0"
-  }
+  "types": [
+    {
+      "name": "DisputeMarked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "transaction_id",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DisputeResolved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "transaction_id",
+            "type": "string"
+          },
+          {
+            "name": "quality_score",
+            "type": "u8"
+          },
+          {
+            "name": "refund_percentage",
+            "type": "u8"
+          },
+          {
+            "name": "refund_amount",
+            "type": "u64"
+          },
+          {
+            "name": "payment_amount",
+            "type": "u64"
+          },
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EntityReputation",
+      "docs": [
+        "Entity Reputation - tracks agent/provider performance on-chain"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "entity",
+            "type": "pubkey"
+          },
+          {
+            "name": "entity_type",
+            "type": {
+              "defined": {
+                "name": "EntityType"
+              }
+            }
+          },
+          {
+            "name": "total_transactions",
+            "type": "u64"
+          },
+          {
+            "name": "disputes_filed",
+            "type": "u64"
+          },
+          {
+            "name": "disputes_won",
+            "type": "u64"
+          },
+          {
+            "name": "disputes_partial",
+            "type": "u64"
+          },
+          {
+            "name": "disputes_lost",
+            "type": "u64"
+          },
+          {
+            "name": "average_quality_received",
+            "type": "u8"
+          },
+          {
+            "name": "reputation_score",
+            "type": "u16"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "last_updated",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EntityType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Agent"
+          },
+          {
+            "name": "Provider"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Escrow",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "api",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "EscrowStatus"
+              }
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "transaction_id",
+            "type": "string"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "quality_score",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "refund_percentage",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "oracle_submissions",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "OracleSubmission"
+                }
+              }
+            }
+          },
+          {
+            "name": "token_mint",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "escrow_token_account",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "token_decimals",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "api",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "transaction_id",
+            "type": "string"
+          },
+          {
+            "name": "is_token",
+            "type": "bool"
+          },
+          {
+            "name": "token_mint",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Released"
+          },
+          {
+            "name": "Disputed"
+          },
+          {
+            "name": "Resolved"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundsReleased",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "transaction_id",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "api",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MultiOracleDisputeResolved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "transaction_id",
+            "type": "string"
+          },
+          {
+            "name": "oracle_count",
+            "type": "u8"
+          },
+          {
+            "name": "individual_scores",
+            "type": "bytes"
+          },
+          {
+            "name": "oracles",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "consensus_score",
+            "type": "u8"
+          },
+          {
+            "name": "refund_percentage",
+            "type": "u8"
+          },
+          {
+            "name": "refund_amount",
+            "type": "u64"
+          },
+          {
+            "name": "payment_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleAdded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "registry",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_type_index",
+            "type": "u8"
+          },
+          {
+            "name": "weight",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleConfig",
+      "docs": [
+        "Configuration for a single oracle"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pubkey",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_type",
+            "type": {
+              "defined": {
+                "name": "OracleType"
+              }
+            }
+          },
+          {
+            "name": "weight",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleRegistry",
+      "docs": [
+        "Oracle Registry - Stores approved oracle list and consensus config"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracles",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "OracleConfig"
+                }
+              }
+            }
+          },
+          {
+            "name": "min_consensus",
+            "type": "u8"
+          },
+          {
+            "name": "max_score_deviation",
+            "type": "u8"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleRegistryInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "registry",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "min_consensus",
+            "type": "u8"
+          },
+          {
+            "name": "max_score_deviation",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleRemoved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "registry",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleSubmission",
+      "docs": [
+        "Individual oracle submission for quality assessment"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "quality_score",
+            "type": "u8"
+          },
+          {
+            "name": "submitted_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleSubmissionInput",
+      "docs": [
+        "Input structure for oracle submissions in instructions"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "quality_score",
+            "type": "u8"
+          },
+          {
+            "name": "signature",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleType",
+      "docs": [
+        "Type of oracle for verification"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Ed25519"
+          },
+          {
+            "name": "Switchboard"
+          },
+          {
+            "name": "Custom"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleVote",
+      "docs": [
+        "Individual oracle vote with signature"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "quality_score",
+            "type": "u8"
+          },
+          {
+            "name": "signature",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleVotes",
+      "docs": [
+        "Temporary storage for oracle votes (for sequential submission)",
+        "This account holds oracle submissions until final consensus is calculated"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "transaction_id",
+            "type": "string"
+          },
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "votes",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "OracleVote"
+                }
+              }
+            }
+          },
+          {
+            "name": "vote_count",
+            "type": "u8"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RateLimiter",
+      "docs": [
+        "Rate Limiter - prevents spam and abuse"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "entity",
+            "type": "pubkey"
+          },
+          {
+            "name": "verification_level",
+            "type": {
+              "defined": {
+                "name": "VerificationLevel"
+              }
+            }
+          },
+          {
+            "name": "transactions_last_hour",
+            "type": "u16"
+          },
+          {
+            "name": "transactions_last_day",
+            "type": "u16"
+          },
+          {
+            "name": "disputes_last_day",
+            "type": "u16"
+          },
+          {
+            "name": "last_hour_check",
+            "type": "i64"
+          },
+          {
+            "name": "last_day_check",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VerificationLevel",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Basic"
+          },
+          {
+            "name": "Staked"
+          },
+          {
+            "name": "Social"
+          },
+          {
+            "name": "KYC"
+          }
+        ]
+      }
+    }
+  ]
 }
