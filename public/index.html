@@ -1574,21 +1574,6 @@ pub mod x402_escrow {
         let currentChart = null;
         let consensusChart = null;
 
-        // Toggle token mint field visibility and update label
-        function toggleTokenMintField() {
-            const isSpl = document.getElementById('escrowTypeSpl').checked;
-            const tokenMintGroup = document.getElementById('tokenMintGroup');
-            const valueLabel = document.getElementById('valueLabel');
-
-            if (isSpl) {
-                tokenMintGroup.style.display = 'block';
-                valueLabel.textContent = 'Transaction Value (Token Amount)';
-            } else {
-                tokenMintGroup.style.display = 'none';
-                valueLabel.textContent = 'Transaction Value (SOL)';
-            }
-        }
-
         // Initialize
         function highlightSyntax() {
             document.querySelectorAll('.code-block pre').forEach(block => {
@@ -1831,23 +1816,12 @@ pub mod x402_escrow {
             const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
             const apiPublicKey = window.oracleSystem.oracles[0].publicKey; // Using first oracle as API for demo
 
-            // Read SPL token settings
-            const useSplToken = document.getElementById('escrowTypeSpl').checked;
-            const tokenMintAddress = useSplToken ? document.getElementById('tokenMintAddress').value.trim() : null;
-
-            // Validate token mint if SPL token selected
-            if (useSplToken && !tokenMintAddress) {
-                showStatus('Please enter a token mint address for SPL token escrow', 'error');
-                btn.disabled = false;
-                progressBar.style.display = 'none';
-                return;
-            }
+            // Always use Native SOL (deployed program doesn't have SPL token support yet)
+            const useSplToken = false;
+            const tokenMintAddress = null;
 
             console.log('Creating escrow with transaction ID:', transactionId);
-            console.log('Escrow type:', useSplToken ? 'SPL Token' : 'Native SOL');
-            if (useSplToken) {
-                console.log('Token mint:', tokenMintAddress);
-            }
+            console.log('Escrow type: Native SOL');
 
             try {
                 // Step 1: Ensure reputation accounts exist (batched)
